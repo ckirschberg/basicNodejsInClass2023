@@ -32,6 +32,7 @@ app.get('/destinations', async (req, res) => {
     res.status(200).json(result);
 })
 
+// this is for creating new destinations.
 app.post('/destinations', (req, res) => {
     console.log(req.body);
     res.status(201).send("Created a destination");
