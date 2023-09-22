@@ -31,7 +31,7 @@ app.get('/destinations', async (req, res) => {
     console.log(result);
     res.status(200).json(result);
 })
-
+ // change
 // this is for creating new destinations.
 app.post('/destinations', (req, res) => {
     console.log(req.body);
