@@ -1,8 +1,14 @@
 const express = require('express')
 const mongoose = require('mongoose')
 const { ObjectId } = require("mongodb");
+const dotenv = require('dotenv');
+const jwt = require('jsonwebtoken');
 const app = express()
 const port = 3000
+dotenv.config();
+
+
+console.log(process.env.jwt_secret);
 
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
@@ -10,19 +16,9 @@ app.use(express.urlencoded({extended: true}));
 
 let uri = 'mongodb://127.0.0.1:27017/destinations';
 mongoose.connect(uri).catch(err => console.log(err));
-const Destination = require('./schemas/destination')
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-// const client = new MongoClient(uri,  {
-//     serverApi: {
-//         version: ServerApiVersion.v1,
-//         strict: true,
-//         deprecationErrors: true,
-//     }
-// }
-// );
-// const db = client.db("destinations2"); // Change this to match your database name
-// const tdCollection = db.collection("destinations") // change this to match your collection name
+const Destination = require('./schemas/destination')
+const User = require('./schemas/user')
 
 app.get('/destinations/:destinationId', async (req, res) => {
     console.log(req.params.destinationId);
@@ -83,6 +79,37 @@ app.delete('/destinations/:id', (req, res) => {
     })
     
 })
+
+app.post('/auth/signup', (req, res) => {
+    const insertedUser = new User({
+        email: req.body.email,
+        password: req.body.password
+    })
+    
+    // Never save passwords as clear text.
+    insertedUser.save().then(result => {
+        console.log(result);
+        res.status(201).json(insertedUser) // Remove encoded password before sending it back.
+    }).catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
+})
+
+app.post('/auth/login', (req, res) => {
+    User.findOne({email: req.body.email}).then(user => {
+        if (user.password === req.body.password) { // Comparing clear text passwords, for now. DONT DO THIS!!!
+            const generatedToken = jwt.sign({_id: user._id}, process.env.jwt_secret);
+            res.status(200).json({token: generatedToken})
+        }
+        res.status(401).json({message: 'Invalid login'}); // email match, but password does not!
+        return;
+    }).catch(error => {
+        res.status(401).json({message: 'Invalid login'}); // email does not match.
+    })
+    
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const Destination = mongoose.Schema({
-    country: {type: String},
+    country: {type: String, required: true},
     title: {type: String}
 })
 
