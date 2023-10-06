@@ -3,6 +3,8 @@ const mongoose = require('mongoose')
 const { ObjectId } = require("mongodb");
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
+var passport = require("passport");
+var passportJWT = require("passport-jwt");
 const app = express()
 const port = 3000
 dotenv.config();
@@ -12,6 +14,25 @@ console.log(process.env.jwt_secret);
 
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+
+
+const ExtractJwt = passportJWT.ExtractJwt;
+const JwtStrategy = passportJWT.Strategy;
+const jwtOptions = {
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  secretOrKey: process.env.jwt_secret
+};
+const strategy = new JwtStrategy(jwtOptions, async function(jwt_payload, next) {
+  const user = await User.findOne({ _id: jwt_payload._id});
+  console.log("user found", user);
+  if (user) {
+    next(null, user);
+  } else {
+    next(null, false);
+  }
+});
+passport.use(strategy);
+app.use(passport.initialize());
 
 
 let uri = 'mongodb://127.0.0.1:27017/destinations';
@@ -73,11 +94,10 @@ app.put('/destinations/:id', async (req, res) => {
     })
 })
 
-app.delete('/destinations/:id', (req, res) => {
+app.delete('/destinations/:id', passport.authenticate('jwt', {session: false}), (req, res) => {
     Destination.deleteOne({_id: req.params.id}).then(result => {
         res.status(200).json({message: 'Success'});
     })
-    
 })
 
 app.post('/auth/signup', (req, res) => {
@@ -97,10 +117,13 @@ app.post('/auth/signup', (req, res) => {
 })
 
 app.post('/auth/login', (req, res) => {
-    User.findOne({email: req.body.email}).then(user => {
-        if (user.password === req.body.password) { // Comparing clear text passwords, for now. DONT DO THIS!!!
+    User.findOne({email: req.body.email}).then( async (user) => {
+        //if (user.password === req.body.password) { // Comparing clear text passwords, for now. DONT DO THIS!!!
+
+        if(await user.isValidPassword(req.body.password)) {
             const generatedToken = jwt.sign({_id: user._id}, process.env.jwt_secret);
             res.status(200).json({token: generatedToken})
+            return;
         }
         res.status(401).json({message: 'Invalid login'}); // email match, but password does not!
         return;
